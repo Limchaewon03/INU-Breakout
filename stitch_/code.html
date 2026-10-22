@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>인천대학교 횃불이 벽돌깨기</title>
+<!-- Tailwind CSS v3 CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            inu: {
+              primary: '#004098',
+              dark: '#002966',
+              light: '#2d6ed9',
+              accent: '#f7941d',
+              canvas: '#f8fafc'
+            }
+          },
+          fontFamily: {
+            sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'Roboto', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+<!-- BEGIN: Custom Styles -->
+<style data-purpose="typography">
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    body {
+      font-family: 'Pretendard', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+  </style>
+<style data-purpose="game-effects">
+    /* Subtle glow for UI & retro feel */
+    .game-board-container {
+      box-shadow: 0 20px 40px -15px rgba(0, 64, 152, 0.2), 0 0 0 1px rgba(0, 64, 152, 0.12);
+    }
+    .retro-border {
+      box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.6), inset 0 -2px 4px rgba(0, 0, 0, 0.15);
+    }
+    .brick-3d {
+      box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 0 rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0,0,0,0.06);
+    }
+    /* Modal Backdrop */
+    .overlay-backdrop {
+      background-color: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(4px);
+    }
+  </style>
+<!-- END: Custom Styles -->
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col items-center justify-center p-2 sm:p-6 text-slate-800">
+<!-- BEGIN: MainContainer -->
+<main class="w-full max-w-[800px] bg-white rounded-3xl overflow-hidden game-board-container flex flex-col border border-slate-200">
+<!-- BEGIN: TopStatusBar (Wireframe faithful layout) -->
+<!-- 와이어프레임 상단: 남은 생명 | 플레이어 이름 | 타이머 | 남은 블록 | 일시정지 | 게임종료 -->
+<header class="w-full bg-white px-4 py-3.5 border-b-2 border-inu-primary/20 flex flex-wrap items-center justify-between gap-2.5">
+<!-- Status Items Group -->
+<div class="flex flex-wrap items-center gap-2 sm:gap-2.5 flex-1 min-w-[280px]">
+<!-- 남은 생명 -->
+<div class="px-3 py-1.5 rounded-xl border border-slate-300 bg-slate-50 flex items-center gap-1.5 shadow-sm" data-purpose="stat-lives">
+<span class="text-xs font-bold text-slate-500">생명</span>
+<div class="flex items-center text-sm tracking-tight text-red-500 font-bold" id="lives-display">
+            ❤️ ❤️ ❤️
+          </div>
+</div>
+<!-- 플레이어 이름 -->
+<div class="px-3 py-1.5 rounded-xl border border-slate-300 bg-slate-50 flex items-center gap-2 shadow-sm" data-purpose="stat-player">
+<div class="w-5 h-5 rounded-full overflow-hidden bg-inu-primary/10 flex-shrink-0">
+<img alt="횃불이" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAljIYASh6XCoAnTXTkrA-bBNQ4U_hlamv02rWb-9ZdYPRZFUSPfqu80khf6t3Go0Mdp8hXfL6RXlVa2a2pu5g4t8yhC_Hgcw1-7rd16J-qSUyJ6bmZKQdj6v5phGMYWnEzUPHa2khrNzXmhaw_KSkZELJ-8rhO-J31opRL7bv2CuYtXmFQhGZy93K6BStCDhHJUoOCXKsRj56BXRSOWFoEL5_jwg4JeEhbfS_K2-NDODId7nHh8cHGjh-LmnuVXPcxEjI"/>
+</div>
+<span class="text-xs font-bold text-slate-500">플레이어</span>
+<span class="text-xs font-bold text-inu-primary" id="player-name-display">횃불이</span>
+</div>
+<!-- 타이머 -->
+<div class="px-3 py-1.5 rounded-xl border border-slate-300 bg-slate-50 flex items-center gap-1.5 shadow-sm" data-purpose="stat-timer">
+<span class="text-xs font-bold text-slate-500">타이머</span>
+<span class="text-xs font-mono font-bold text-slate-800" id="timer-display">00:00</span>
+</div>
+<!-- 남은 블록 -->
+<div class="px-3 py-1.5 rounded-xl border border-slate-300 bg-slate-50 flex items-center gap-1.5 shadow-sm" data-purpose="stat-bricks">
+<span class="text-xs font-bold text-slate-500">남은 블록</span>
+<span class="text-xs font-black text-inu-primary font-mono" id="brick-count-display">40</span>
+<span class="text-[10px] text-slate-400">/ 40</span>
+</div>
+</div>
+<!-- Action Buttons Group -->
+<div class="flex items-center gap-2">
+<!-- 일시정지 버튼 -->
+<button class="px-3.5 py-1.5 rounded-xl border border-slate-300 hover:border-inu-primary text-slate-700 hover:text-inu-primary hover:bg-inu-primary/5 active:scale-95 transition-all text-xs font-bold flex items-center gap-1 shadow-sm" id="btn-pause" type="button">
+<span id="pause-icon">⏸️</span>
+<span id="pause-text">일시정지</span>
+</button>
+<!-- 게임종료 버튼 -->
+<button class="px-3.5 py-1.5 rounded-xl border border-red-200 bg-red-50/60 hover:bg-red-500 text-red-600 hover:text-white active:scale-95 transition-all text-xs font-bold flex items-center gap-1 shadow-sm" id="btn-restart" type="button">
+<span>⏹️</span>
+<span>게임종료</span>
+</button>
+</div>
+</header>
+<!-- END: TopStatusBar -->
+<!-- BEGIN: GameCanvasArea -->
+<section class="relative w-full aspect-[720/730] bg-[#fafdff] overflow-hidden flex items-center justify-center">
+<!-- Mascot Watermark in Background -->
+<div class="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none select-none">
+<img alt="인천대학교 마스코트 배경" class="w-72 h-72 object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAljIYASh6XCoAnTXTkrA-bBNQ4U_hlamv02rWb-9ZdYPRZFUSPfqu80khf6t3Go0Mdp8hXfL6RXlVa2a2pu5g4t8yhC_Hgcw1-7rd16J-qSUyJ6bmZKQdj6v5phGMYWnEzUPHa2khrNzXmhaw_KSkZELJ-8rhO-J31opRL7bv2CuYtXmFQhGZy93K6BStCDhHJUoOCXKsRj56BXRSOWFoEL5_jwg4JeEhbfS_K2-NDODId7nHh8cHGjh-LmnuVXPcxEjI"/>
+</div>
+<!-- HTML5 Game Canvas -->
+<canvas class="w-full h-full block cursor-none touch-none z-10" height="730" id="gameCanvas" width="720"></canvas>
+<!-- BEGIN: OverlayModals -->
+<!-- Start / Pause / GameOver Overlay Screen -->
+<div class="absolute inset-0 z-20 overlay-backdrop flex flex-col items-center justify-center text-center p-6 transition-opacity duration-200" id="game-overlay">
+<div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border-2 border-inu-primary/20 flex flex-col items-center animate-fade-in">
+<img alt="횃불이" class="w-24 h-24 object-contain mb-3 drop-shadow-md" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAljIYASh6XCoAnTXTkrA-bBNQ4U_hlamv02rWb-9ZdYPRZFUSPfqu80khf6t3Go0Mdp8hXfL6RXlVa2a2pu5g4t8yhC_Hgcw1-7rd16J-qSUyJ6bmZKQdj6v5phGMYWnEzUPHa2khrNzXmhaw_KSkZELJ-8rhO-J31opRL7bv2CuYtXmFQhGZy93K6BStCDhHJUoOCXKsRj56BXRSOWFoEL5_jwg4JeEhbfS_K2-NDODId7nHh8cHGjh-LmnuVXPcxEjI"/>
+<h2 class="text-2xl font-black text-inu-primary tracking-tight mb-1" id="overlay-title">횃불이 벽돌깨기</h2>
+<p class="text-sm text-slate-500 mb-6" id="overlay-subtitle">마우스 또는 방향키(←, →)로 패들을 조작하세요!</p>
+<div class="space-y-2 w-full">
+<button class="w-full py-3 bg-inu-primary hover:bg-inu-dark active:scale-[0.98] text-white font-bold rounded-2xl shadow-lg shadow-inu-primary/30 transition text-sm" id="overlay-start-btn">
+              게임 시작하기
+            </button>
+</div>
+<div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center gap-3 text-[11px] text-slate-400 font-medium">
+<span>인천대학교 INU</span>
+<span>•</span>
+<span>총 40개의 파스텔 벽돌</span>
+</div>
+</div>
+</div>
+<!-- END: OverlayModals -->
+</section>
+<!-- END: GameCanvasArea -->
+<!-- BEGIN: GameFooterGuide -->
+<footer class="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-semibold">Tip</span>
+<span>패들 중앙이 아닌 가장자리에 맞출수록 공이 더 예리한 각도로 튕깁니다.</span>
+</div>
+<div class="flex items-center gap-1 font-mono text-[11px]">
+<kbd class="px-1.5 py-0.5 bg-white border border-slate-300 rounded shadow-xs font-sans text-[10px]">◀</kbd>
+<kbd class="px-1.5 py-0.5 bg-white border border-slate-300 rounded shadow-xs font-sans text-[10px]">▶</kbd>
+<span class="ml-1">또는 마우스 이동</span>
+</div>
+</footer>
+<!-- END: GameFooterGuide -->
+</main>
+<!-- END: MainContainer -->
+<!-- BEGIN: GameLogicScript -->
+<script data-purpose="breakout-game-engine">
+    // Game Configuration & References
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI Elements
+    const livesDisplay = document.getElementById('lives-display');
+    const timerDisplay = document.getElementById('timer-display');
+    const brickCountDisplay = document.getElementById('brick-count-display');
+    const btnPause = document.getElementById('btn-pause');
+    const btnRestart = document.getElementById('btn-restart');
+    const pauseIcon = document.getElementById('pause-icon');
+    const pauseText = document.getElementById('pause-text');
+
+    const overlay = document.getElementById('game-overlay');
+    const overlayTitle = document.getElementById('overlay-title');
+    const overlaySubtitle = document.getElementById('overlay-subtitle');
+    const overlayStartBtn = document.getElementById('overlay-start-btn');
+
+    // 6-Color Palette Required: Light Red, Light Orange, Light Yellow, Light Blue, Light Green, Light Purple
+    const PASTEL_PALETTE = [
+      { fill: '#ffcdd2', border: '#ef9a9a', text: '#b71c1c' }, // 연한 빨강
+      { fill: '#ffe0b2', border: '#ffcc80', text: '#e65100' }, // 연한 주황
+      { fill: '#fff9c4', border: '#fff59d', text: '#f57f17' }, // 연한 노랑
+      { fill: '#c8e6c9', border: '#a5d6a7', text: '#1b5e20' }, // 연한 녹색
+      { fill: '#bbdefb', border: '#90caf9', text: '#0d47a1' }, // 연한 파랑
+      { fill: '#e1bee7', border: '#ce93d8', text: '#4a148c' }  // 연한 보라
+    ];
+
+    // Core Game States
+    let isRunning = false;
+    let isPaused = false;
+    let lives = 3;
+    let remainingBricks = 40;
+    let secondsElapsed = 0;
+    let timerInterval = null;
+    let animationFrameId = null;
+
+    // Paddle Setup
+    const paddle = {
+      width: 140,
+      height: 18,
+      x: (canvas.width - 140) / 2,
+      y: canvas.height - 70,
+      speed: 8,
+      dx: 0,
+      color: '#004098'
+    };
+
+    // Ball Setup (Blue Energy Core / Torch Flame vibe)
+    const ball = {
+      x: canvas.width / 2,
+      y: canvas.height - 100,
+      radius: 13,
+      speed: 6.0,
+      dx: 3.5,
+      dy: -5.0,
+      trail: []
+    };
+
+    // Bricks Grid Specifications: 5 rows × 8 cols = 40 bricks
+    const brickConfig = {
+      rowCount: 5,
+      colCount: 8,
+      width: 74,
+      height: 28,
+      padding: 6,
+      offsetTop: 70,
+      offsetLeft: 44
+    };
+
+    let bricks = [];
+
+    // Helper: Initialize Bricks with Pastel Colors
+    function initBricks() {
+      bricks = [];
+      remainingBricks = brickConfig.rowCount * brickConfig.colCount;
+      brickCountDisplay.innerText = remainingBricks;
+
+      for (let r = 0; r < brickConfig.rowCount; r++) {
+        bricks[r] = [];
+        for (let c = 0; c < brickConfig.colCount; c++) {
+          // Harmonious pastel color distribution
+          const colorObj = PASTEL_PALETTE[(r * brickConfig.colCount + c) % PASTEL_PALETTE.length];
+          bricks[r][c] = {
+            x: 0,
+            y: 0,
+            status: 1, // 1 = alive, 0 = broken
+            color: colorObj.fill,
+            borderColor: colorObj.border,
+            textColor: colorObj.text
+          };
+        }
+      }
+    }
+
+    // Reset Ball and Paddle Position
+    function resetBallAndPaddle() {
+      paddle.x = (canvas.width - paddle.width) / 2;
+      ball.x = canvas.width / 2;
+      ball.y = paddle.y - ball.radius - 2;
+      // Randomize initial direction slightly upward
+      const angle = (Math.random() * 0.6 - 0.3) * Math.PI; // -54 to +54 deg
+      ball.dx = ball.speed * Math.sin(angle);
+      ball.dy = -Math.abs(ball.speed * Math.cos(angle));
+      ball.trail = [];
+    }
+
+    // Render Lives Display
+    function updateLivesDisplay() {
+      let heartStr = '';
+      for (let i = 0; i < 3; i++) {
+        heartStr += (i < lives) ? '❤️ ' : '🤍 ';
+      }
+      livesDisplay.innerHTML = heartStr.trim();
+    }
+
+    // Format & Render Timer
+    function updateTimerDisplay() {
+      const mins = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+      const secs = String(secondsElapsed % 60).padStart(2, '0');
+      timerDisplay.innerText = `${mins}:${secs}`;
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (isRunning && !isPaused) {
+          secondsElapsed++;
+          updateTimerDisplay();
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    // Drawing Functions
+    function drawPaddle() {
+      ctx.save();
+      
+      // Paddle Drop Shadow
+      ctx.shadowColor = 'rgba(0, 64, 152, 0.35)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 4;
+
+      // Rounded Paddle Body
+      const radius = paddle.height / 2;
+      const x = paddle.x;
+      const y = paddle.y;
+      const w = paddle.width;
+      const h = paddle.height;
+
+      const grad = ctx.createLinearGradient(x, y, x, y + h);
+      grad.addColorStop(0, '#2b72db');
+      grad.addColorStop(0.5, '#004098');
+      grad.addColorStop(1, '#002868');
+
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + w - radius, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+      ctx.lineTo(x + radius, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Top Highlight Rim
+      ctx.shadowColor = 'transparent';
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y + 2);
+      ctx.lineTo(x + w - radius, y + 2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // INU Accent Center Line
+      ctx.fillStyle = '#f7941d';
+      ctx.beginPath();
+      ctx.roundRect(x + w/2 - 12, y + h/2 - 2, 24, 4, 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawBall() {
+      ctx.save();
+
+      // Ball particle trail
+      for (let i = 0; i < ball.trail.length; i++) {
+        const t = ball.trail[i];
+        const alpha = (i + 1) / ball.trail.length * 0.25;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, ball.radius * (0.5 + (i / ball.trail.length) * 0.4), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0, 80, 200, ${alpha})`;
+        ctx.fill();
+      }
+
+      // Ball Outer Glow
+      ctx.shadowColor = '#0055ff';
+      ctx.shadowBlur = 14;
+
+      // Ball Body (Torch Blue Energy Sphere)
+      const grad = ctx.createRadialGradient(
+        ball.x - ball.radius * 0.3,
+        ball.y - ball.radius * 0.3,
+        ball.radius * 0.1,
+        ball.x,
+        ball.y,
+        ball.radius
+      );
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(0.4, '#5ca2ff');
+      grad.addColorStop(0.85, '#0048ba');
+      grad.addColorStop(1, '#002570');
+
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Sharp Highlight
+      ctx.shadowColor = 'transparent';
+      ctx.beginPath();
+      ctx.arc(ball.x - ball.radius * 0.35, ball.y - ball.radius * 0.35, ball.radius * 0.28, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawBricks() {
+      for (let r = 0; r < brickConfig.rowCount; r++) {
+        for (let c = 0; c < brickConfig.colCount; c++) {
+          const b = bricks[r][c];
+          if (b.status === 1) {
+            const brickX = c * (brickConfig.width + brickConfig.padding) + brickConfig.offsetLeft;
+            const brickY = r * (brickConfig.height + brickConfig.padding) + brickConfig.offsetTop;
+            b.x = brickX;
+            b.y = brickY;
+
+            ctx.save();
+
+            // Brick Shadow & Body
+            ctx.shadowColor = 'rgba(0,0,0,0.06)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetY = 2;
+
+            // Rounded rectangle for brick
+            ctx.beginPath();
+            ctx.roundRect(brickX, brickY, brickConfig.width, brickConfig.height, 6);
+            ctx.fillStyle = b.color;
+            ctx.fill();
+
+            // Border Stroke
+            ctx.shadowColor = 'transparent';
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = b.borderColor;
+            ctx.stroke();
+
+            // 3D Inner Bevel Highlight
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(brickX + 1.5, brickY + 1.5, brickConfig.width - 3, 1);
+
+            // Brick Text: '벽돌' (As requested in wireframe https://lh3.googleusercontent.com/aida-public/AB6AXuDUKs06CsrwPUBaT2V6vRv6ZR6UCXnQneuuS4WR8MUFsd81IKZIQBbvd1ZZF7C18AGFkX5PT2gD42cc_Qft_u7B3aa1Ygfp55Yjiwr635RPabMJZ0KwmQH6P6xqlM8fG52KlssrckvH3QnaXcipGWAi25Ip5tpWejfWwHm08FhfuCWkZKKb8vE48GBBDamjwDr3mdL8q_2OBoWFP1UFy8pj4Np_pGN7MTGaVADzrEzmTmjWawZOBK2v-JukDK_ZpqD0pR0)
+            ctx.font = 'bold 12px Pretendard, sans-serif';
+            ctx.fillStyle = b.textColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('벽돌', brickX + (brickConfig.width / 2), brickY + (brickConfig.height / 2) + 1);
+
+            ctx.restore();
+          }
+        }
+      }
+    }
+
+    // Collision Detection Logic
+    function detectCollisions() {
+      for (let r = 0; r < brickConfig.rowCount; r++) {
+        for (let c = 0; c < brickConfig.colCount; c++) {
+          const b = bricks[r][c];
+          if (b.status === 1) {
+            // Check collision between ball circle & brick box
+            const nearestX = Math.max(b.x, Math.min(ball.x, b.x + brickConfig.width));
+            const nearestY = Math.max(b.y, Math.min(ball.y, b.y + brickConfig.height));
+            const distX = ball.x - nearestX;
+            const distY = ball.y - nearestY;
+
+            if ((distX * distX + distY * distY) < (ball.radius * ball.radius)) {
+              // Collision occurred!
+              b.status = 0;
+              remainingBricks--;
+              brickCountDisplay.innerText = remainingBricks;
+
+              // Collision angle calculation for realistic bounce
+              const overlapLeft = Math.abs((ball.x + ball.radius) - b.x);
+              const overlapRight = Math.abs((ball.x - ball.radius) - (b.x + brickConfig.width));
+              const overlapTop = Math.abs((ball.y + ball.radius) - b.y);
+              const overlapBottom = Math.abs((ball.y - ball.radius) - (b.y + brickConfig.height));
+
+              const minOverlapX = Math.min(overlapLeft, overlapRight);
+              const minOverlapY = Math.min(overlapTop, overlapBottom);
+
+              if (minOverlapX < minOverlapY) {
+                ball.dx = -ball.dx;
+              } else {
+                ball.dy = -ball.dy;
+              }
+
+              // Check victory condition
+              if (remainingBricks === 0) {
+                handleGameOver(true);
+              }
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    // Core Animation Frame Loop
+    function updateGame() {
+      if (!isRunning || isPaused) return;
+
+      // 1. Move Paddle
+      paddle.x += paddle.dx;
+      if (paddle.x < 10) paddle.x = 10;
+      if (paddle.x + paddle.width > canvas.width - 10) {
+        paddle.x = canvas.width - paddle.width - 10;
+      }
+
+      // 2. Manage Ball Trail
+      ball.trail.push({ x: ball.x, y: ball.y });
+      if (ball.trail.length > 5) {
+        ball.trail.shift();
+      }
+
+      // 3. Move Ball
+      ball.x += ball.dx;
+      ball.y += ball.dy;
+
+      // Wall Bounce (Left & Right)
+      if (ball.x - ball.radius <= 10) {
+        ball.x = 10 + ball.radius;
+        ball.dx = -ball.dx;
+      } else if (ball.x + ball.radius >= canvas.width - 10) {
+        ball.x = canvas.width - 10 - ball.radius;
+        ball.dx = -ball.dx;
+      }
+
+      // Ceiling Bounce
+      if (ball.y - ball.radius <= 10) {
+        ball.y = 10 + ball.radius;
+        ball.dy = -ball.dy;
+      }
+
+      // Paddle Collision
+      if (
+        ball.y + ball.radius >= paddle.y &&
+        ball.y - ball.radius <= paddle.y + paddle.height &&
+        ball.x >= paddle.x &&
+        ball.x <= paddle.x + paddle.width
+      ) {
+        // Dynamic angle calculation based on hit location
+        const hitOffset = (ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2);
+        const maxAngle = Math.PI * 0.42; // max ~75 degrees
+        const currentSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+        const bounceAngle = hitOffset * maxAngle;
+
+        ball.dx = currentSpeed * Math.sin(bounceAngle);
+        ball.dy = -Math.abs(currentSpeed * Math.cos(bounceAngle));
+        ball.y = paddle.y - ball.radius - 1;
+      }
+
+      // Fall Below Bottom Edge (Life Lost)
+      if (ball.y - ball.radius > canvas.height) {
+        lives--;
+        updateLivesDisplay();
+
+        if (lives <= 0) {
+          handleGameOver(false);
+          return;
+        } else {
+          // Reset ball position for next life
+          resetBallAndPaddle();
+        }
+      }
+
+      // 4. Brick Collision
+      detectCollisions();
+
+      // 5. Redraw Canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBricks();
+      drawPaddle();
+      drawBall();
+
+      animationFrameId = requestAnimationFrame(updateGame);
+    }
+
+    // Modal & State Handlers
+    function showOverlay(title, subtitle, btnText) {
+      overlayTitle.innerText = title;
+      overlaySubtitle.innerText = subtitle;
+      overlayStartBtn.innerText = btnText;
+      overlay.classList.remove('hidden');
+    }
+
+    function hideOverlay() {
+      overlay.classList.add('hidden');
+    }
+
+    function startGame() {
+      lives = 3;
+      secondsElapsed = 0;
+      updateLivesDisplay();
+      updateTimerDisplay();
+      initBricks();
+      resetBallAndPaddle();
+      hideOverlay();
+      isRunning = true;
+      isPaused = false;
+      pauseIcon.innerText = '⏸️';
+      pauseText.innerText = '일시정지';
+      startTimer();
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(updateGame);
+    }
+
+    function togglePause() {
+      if (!isRunning) return;
+      isPaused = !isPaused;
+      if (isPaused) {
+        pauseIcon.innerText = '▶️';
+        pauseText.innerText = '계속하기';
+        showOverlay('게임 일시정지', '경기가 잠시 멈췄습니다. 언제든 계속 플레이할 수 있습니다.', '게임 계속하기');
+      } else {
+        pauseIcon.innerText = '⏸️';
+        pauseText.innerText = '일시정지';
+        hideOverlay();
+        animationFrameId = requestAnimationFrame(updateGame);
+      }
+    }
+
+    function handleGameOver(isVictory) {
+      isRunning = false;
+      stopTimer();
+      cancelAnimationFrame(animationFrameId);
+
+      const mins = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+      const secs = String(secondsElapsed % 60).padStart(2, '0');
+      const timeStr = `${mins}:${secs}`;
+
+      if (isVictory) {
+        showOverlay(
+          '🎉 축하합니다! 승리!',
+          `모든 블록을 격파했습니다! (기록: ${timeStr})`,
+          '다시 도전하기'
+        );
+      } else {
+        showOverlay(
+          'GAME OVER',
+          `아쉽네요! 남은 블록: ${remainingBricks}개 (${timeStr})`,
+          '다시 시작하기'
+        );
+      }
+    }
+
+    function quitGame() {
+      isRunning = false;
+      isPaused = false;
+      stopTimer();
+      cancelAnimationFrame(animationFrameId);
+      showOverlay('게임 준비 완료', '인천대학교 마스코트 횃불이와 함께 벽돌을 깨보세요!', '게임 시작하기');
+      initBricks();
+      resetBallAndPaddle();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBricks();
+      drawPaddle();
+      drawBall();
+    }
+
+    // Event Listeners: Keyboard Navigation
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'Right') {
+        paddle.dx = paddle.speed;
+      } else if (e.key === 'ArrowLeft' || e.key === 'Left') {
+        paddle.dx = -paddle.speed;
+      } else if (e.key === ' ' || e.key === 'Spacebar') {
+        if (isRunning) togglePause();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'Right' || e.key === 'ArrowLeft' || e.key === 'Left') {
+        paddle.dx = 0;
+      }
+    });
+
+    // Mouse / Pointer Movement
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const mouseX = (e.clientX - rect.left) * scaleX;
+      paddle.x = mouseX - paddle.width / 2;
+
+      // Keep within bounds
+      if (paddle.x < 10) paddle.x = 10;
+      if (paddle.x + paddle.width > canvas.width - 10) {
+        paddle.x = canvas.width - paddle.width - 10;
+      }
+    });
+
+    // Touch Support for Mobile / Tablets
+    canvas.addEventListener('touchmove', (e) => {
+      if (!e.touches[0]) return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const touchX = (e.touches[0].clientX - rect.left) * scaleX;
+      paddle.x = touchX - paddle.width / 2;
+      if (paddle.x < 10) paddle.x = 10;
+      if (paddle.x + paddle.width > canvas.width - 10) {
+        paddle.x = canvas.width - paddle.width - 10;
+      }
+      e.preventDefault();
+    }, { passive: false });
+
+    // Buttons Bindings
+    btnPause.addEventListener('click', togglePause);
+    btnRestart.addEventListener('click', quitGame);
+    overlayStartBtn.addEventListener('click', () => {
+      if (isPaused) {
+        togglePause();
+      } else {
+        startGame();
+      }
+    });
+
+    // Initial Static Render
+    initBricks();
+    resetBallAndPaddle();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBricks();
+    drawPaddle();
+    drawBall();
+  </script>
+<!-- END: GameLogicScript -->
+</body></html>
